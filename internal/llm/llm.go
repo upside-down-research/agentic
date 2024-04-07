@@ -6,12 +6,14 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	//	"github.com/tidwall/gjson"
 	"log"
 	"net/http"
 )
 
-type ChatQuery struct {
+type AI00Query struct {
 	Messages         []Messages `json:"messages"`
 	MaxTokens        int        `json:"max_tokens"`
 	Temperature      int        `json:"temperature"`
@@ -32,14 +34,15 @@ type Names struct {
 	Assistant string `json:"assistant"`
 }
 
-type Server struct {
+type AI00Server struct {
 	Host string
 }
 
-func NewChatQuery(n Names, m []Messages) *ChatQuery {
-	r := &ChatQuery{
+func NewChatQuery(n Names, m []Messages) *AI00Query {
+	r := &AI00Query{
 		Messages:         m,
 		MaxTokens:        1000,
+		TopP:             0.5,
 		Temperature:      1,
 		PresencePenalty:  0.3,
 		FrequencyPenalty: 0.3,
@@ -76,28 +79,26 @@ func parseEvent(rawEvent string) (*Response, error) {
 	}
 	return nil, fmt.Errorf("invalid event format")
 }
-func (s *Server) Completion(data *ChatQuery) {
-	payloadBytes, err := json.Marshal(data)
+func (s *AI00Server) Completion(data *AI00Query) string {
+	payloadBytes, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		panic(err)
 	}
-	body := bytes.NewReader(payloadBytes)
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/oai/chat/completions", s.Host), body)
+	inputBody := bytes.NewReader(payloadBytes)
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/oai/chat/completions", s.Host), inputBody)
 	if err != nil {
 		panic(err)
 	}
 
 	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Authorization", "Bearer /api/oai/chat/completions")
+	req.Header.Set("Authorization", "Bearer ai00")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Origin", s.Host)
 	req.Header.Set("Pragma", "no-cache")
 	req.Header.Set("Referer", s.Host)
-	// req.Header.Set("Sec-Ch-Ua", `"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"`)
-	// req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
-	// req.Header.Set("Sec-Ch-Ua-Platform", `"Linux"`)
 	req.Header.Set("Sec-Fetch-Dest", "empty")
 	req.Header.Set("Sec-Fetch-Mode", "cors")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
@@ -120,29 +121,36 @@ func (s *Server) Completion(data *ChatQuery) {
 
 	// Process the response
 	fmt.Println("Response status:", resp.Status)
+	if resp.StatusCode != http.StatusOK {
+		// read the entire inputBody
+		buf := new(bytes.Buffer)
+		_, _ = buf.ReadFrom(resp.Body)
 
+		log.Fatalf("Unexpected response status: %s - %s", resp.Status, buf.String())
+	}
 	log.Println("Connected to the SSE server.")
 
 	scanner := bufio.NewScanner(resp.Body)
+	var sb strings.Builder
 	for scanner.Scan() {
 		data := scanner.Text()
-		//fmt.Printf(":%s:\n", data)
 		event, err := parseEvent(data)
 		if err != nil {
-			// log.Println("unparsable event")
+			// log.Printf("Error parsing event: %v", data)
 			continue
 		}
-		//fmt.Printf("%v\n", event)
 
-		fmt.Print(event.Choices[0].Delta.Content)
+		//fmt.Print(event.Choices[0].Delta.Content)
+		fmt.Print(".")
+		sb.WriteString(event.Choices[0].Delta.Content)
+
 		if event.Choices[0].FinishReason == "stop" {
 			break
 		}
-
-		// _ = value
 	}
 
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("Error reading stream: %v", err)
 	}
+	return sb.String()
 }
