@@ -1,4 +1,6 @@
-.PHONY: clean run
+.PHONY: clean run all
+
+all: output/agentic
 
 output/agentic:
 	@mkdir -p output
