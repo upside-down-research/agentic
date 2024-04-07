@@ -15,7 +15,7 @@ type ChatQuery struct {
 	Messages         []Messages `json:"messages"`
 	MaxTokens        int        `json:"max_tokens"`
 	Temperature      int        `json:"temperature"`
-	TopP             float64    `json:"top_p, omitempty"`
+	TopP             float64    `json:"top_p,omitempty"`
 	PresencePenalty  float64    `json:"presence_penalty"`
 	FrequencyPenalty float64    `json:"frequency_penalty"`
 	PenaltyDecay     float64    `json:"penalty_decay"`
