@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"github.com/alecthomas/kong"
 	"log"
@@ -11,6 +12,7 @@ import (
 )
 
 var CLI struct {
+	LLMType string `name:"llm" help:"LLM type to use." enum:"openai,ai00" default:"openai"`
 	// optional flag to set the output path: -o
 	Output *string `name:"output" help:"Output path." type:"path"`
 	// path to initial query
@@ -30,18 +32,7 @@ func StringPrompt(label string) string {
 	return strings.TrimSpace(s)
 }
 
-func main() {
-	_ = kong.Parse(&CLI)
-	s := llm.AI00Server{
-		Host: "https://localhost:65530",
-	}
-
-	bytes, err := os.ReadFile(CLI.Path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	query := string(bytes)
-
+func AnswerMe(l llm.LLMServer, query string) (string, error) {
 	messages := []llm.Messages{
 		{
 			Role: "user", Content: query,
@@ -52,31 +43,125 @@ func main() {
 			Assistant: "assistant"},
 		messages,
 	)
-	sb := strings.Builder{}
-	for {
-		answer := s.Completion(q)
-		fmt.Println(answer)
-		promptResult := StringPrompt("enter to continue, r to reject, e to exit")
-		if promptResult == "e" {
-			break
-		} else if promptResult == "r" {
-			// Just move back up and retry
-			continue
-		} else {
-			sb.WriteString(answer)
-			q.Messages = append(q.Messages, llm.Messages{
-				Role:    "assistant",
-				Content: answer,
-			})
-			q.Messages = append(q.Messages, llm.Messages{
-				Role:    "user",
-				Content: "Continue as per initial instructions. As a reminder, the initial instructions were: " + query + "., and the results to date are: " + sb.String() + ". Please use the initial instructions and complete the task",
-			})
+	return l.Completion(q)
+
+}
+
+func main() {
+	_ = kong.Parse(&CLI)
+
+	var s llm.LLMServer
+	if CLI.LLMType == "ai00" {
+
+		s = llm.AI00Server{
+			Host: "https://localhost:65530",
 		}
+	} else if CLI.LLMType == "openai" {
+		key, found := os.LookupEnv("OPENAI_API_KEY")
+		if !found {
+			log.Fatal("OPENAI_API_KEY not found")
+		}
+		s = llm.OpenAI{
+			Key: key,
+		}
+	} else {
+		log.Fatal("Unknown LLM type")
+	}
+
+	bytes, err := os.ReadFile(CLI.Path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	query := string(bytes)
+	initialQuery := query
+
+	var messages []llm.Messages
+	q := llm.NewChatQuery(
+		llm.Names{User: "user",
+			Assistant: "assistant"},
+		messages,
+	)
+	//sb := strings.Builder{}
+	//var promptResult string
+restart:
+	//sb.Reset()
+	messages = []llm.Messages{
+		{
+			Role: "user", Content: query,
+		},
+	}
+	q.Messages = messages
+	answer, err := s.Completion(q)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(answer)
+	//promptResult := StringPrompt("enter to continue, r to reject, c to move to the next phase")
+	//if promptResult == "c" {
+	//	break
+	//} else if promptResult == "r" {
+	//	// Just move back up and retry
+	//	continue
+	//} else {
+	//	sb.WriteString(answer)
+	//	q.Messages = append(q.Messages, llm.Messages{
+	//		Role:    "assistant",
+	//		Content: answer,
+	//	})
+	//	q.Messages = append(q.Messages, llm.Messages{
+	//		Role:    "user",
+	//		Content: "Continue as per initial instructions. As a reminder, the initial instructions were: " + query + "., and the results to date are: " + sb.String() + ". Please use the initial instructions and complete the task",
+	//	})
+	//}
+
+	//fmt.Printf("To recap, this is the output")
+	//promptResult = StringPrompt("Are you ready to review it?")
+	//if promptResult == "n" {
+	//	log.Fatal("Exiting")
+	//}
+	r, _ := AnswerMe(s, fmt.Sprintf(`Does the output below meet the requirements below? 
+Output: 
+
+%s
+
+Requirements:
+
+%s
+
+After reviewing the output in relationship to the requirements, please assess the output for compliance with the requirements. Is it complete and correct?
+
+Please formulate the answer in this JSON template:
+
+{
+   "answer": "$YES_OR_NO",
+   "reason": "$REASONING"
+}
+
+`, answer, query))
+
+	type Response struct {
+		Answer string `json:"answer"`
+		Reason string `json:"reason"`
+	}
+
+	resp := Response{}
+	json.Unmarshal([]byte(r), &resp)
+
+	fmt.Println("ANSWER: ", resp.Answer)
+	if strings.ToLower(resp.Answer) == "no" {
+		log.Println("Restarting, analysis says incorrect", resp.Reason)
+		query = initialQuery + `
+This was an attempt at an answer: ` + answer +
+			`But, according to " + resp.Reason + ", it is incorrect. Please try again.`
+
+		goto restart
+	} else {
+		log.Println("Analysis says correct: ", resp.Reason)
+		fmt.Println(answer)
 	}
 
 	if CLI.Output != nil {
-		err := os.WriteFile(*CLI.Output, []byte(sb.String()), 644)
+		err := os.WriteFile(*CLI.Output, []byte(answer), 644)
 		if err != nil {
 			log.Fatal(err)
 		}
