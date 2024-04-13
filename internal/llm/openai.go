@@ -10,7 +10,18 @@ import (
 )
 
 type OpenAI struct {
-	Key string
+	Key    string
+	_model string
+}
+
+func (llm OpenAI) Model() string {
+	return llm._model
+}
+func NewOpenAI(key string, model string) *OpenAI {
+	return &OpenAI{
+		Key:    key,
+		_model: model,
+	}
 }
 
 func (llm OpenAI) Completion(data *LLMQuery) (string, error) {
@@ -45,7 +56,7 @@ func (llm OpenAI) Completion(data *LLMQuery) (string, error) {
 	}
 
 	payload := &OpenAIQuery{
-		Model:    "gpt-4-turbo",
+		Model:    llm.Model(),
 		Messages: data.Messages,
 	}
 
@@ -76,10 +87,16 @@ func (llm OpenAI) Completion(data *LLMQuery) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	log.Println(string(body))
 	var CompletionResponseData CompletionResponse
 	err = json.Unmarshal(body, &CompletionResponseData)
 	if err != nil {
 		return "", err
+	}
+
+	if len(CompletionResponseData.Choices) == 0 {
+		log.Println(string(body))
+		return "", nil
 	}
 
 	return string(CompletionResponseData.Choices[0].Message.Content), nil

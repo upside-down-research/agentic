@@ -32,6 +32,7 @@ func NewChatQuery(n Names, m []Messages) *LLMQuery {
 
 type LLMServer interface {
 	Completion(data *LLMQuery) (string, error)
+	Model() string
 }
 
 type Messages struct {

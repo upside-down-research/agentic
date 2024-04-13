@@ -35,7 +35,8 @@ func StringPrompt(label string) string {
 func AnswerMe(l llm.LLMServer, query string) (string, error) {
 	messages := []llm.Messages{
 		{
-			Role: "user", Content: query,
+			Role:    "user",
+			Content: query,
 		},
 	}
 	q := llm.NewChatQuery(
@@ -44,7 +45,6 @@ func AnswerMe(l llm.LLMServer, query string) (string, error) {
 		messages,
 	)
 	return l.Completion(q)
-
 }
 
 func main() {
@@ -60,18 +60,13 @@ func main() {
 		if !found {
 			log.Fatal("OPENAI_API_KEY not found")
 		}
-		s = llm.OpenAI{
-			Key: key,
-		}
+		s = llm.NewOpenAI(key, "gpt-4-turbo")
 	} else if CLI.LLMType == "claude" {
 		key, found := os.LookupEnv("CLAUDE_API_KEY")
 		if !found {
 			log.Fatal("CLAUDE_API_KEY not found")
 		}
-		s = llm.Claude{
-			Key:   key,
-			Model: "claude-3-haiku-20240307", // opus is EXPENSIVE.
-		}
+		s = llm.NewClaude(key, "claude-3-haiku-20240307") // opus is EXPENSIVE.
 	} else {
 		log.Fatal("Unknown LLM type")
 	}
@@ -90,6 +85,15 @@ func main() {
 		messages,
 	)
 
+	// instruct the AI to analyze the query and flesh it out to guarantee a better response.
+	reviewQuery := `Please analyze the query below and address any gaps. Add whatever is required to make the answer explicit and complete:\n\n` + query
+	results, err := AnswerMe(s, reviewQuery)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Final query:\n\n%s\n", results)
+
+	query = results
 restart:
 	messages = []llm.Messages{
 		{
@@ -149,7 +153,7 @@ This was an attempt at an answer: ` + answer +
 	}
 
 	if CLI.Output != nil {
-		err := os.WriteFile(*CLI.Output, []byte(answer), 644)
+		err := os.WriteFile(*CLI.Output, []byte(answer), 0644)
 		if err != nil {
 			log.Fatal(err)
 		}

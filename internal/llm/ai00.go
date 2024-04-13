@@ -17,6 +17,10 @@ type AI00Server struct {
 	Host string
 }
 
+func (llm AI00Server) Model() string {
+	return "ai00"
+}
+
 type Response struct {
 	Object  string `json:"object"`
 	Model   string `json:"model"`

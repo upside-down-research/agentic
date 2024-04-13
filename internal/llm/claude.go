@@ -10,15 +10,19 @@ import (
 )
 
 type Claude struct {
-	Key   string
-	Model string
+	Key    string
+	_model string
 }
 
-func NewClaude(key string) *Claude {
+func NewClaude(key, model string) *Claude {
 	return &Claude{
-		Key:   key,
-		Model: "claude-3-opus-20240229",
+		Key:    key,
+		_model: model,
 	}
+}
+
+func (llm Claude) Model() string {
+	return llm._model
 }
 
 type ClaudeResponse struct {
@@ -43,7 +47,7 @@ type Usage struct {
 }
 
 func (llm Claude) Completion(data *LLMQuery) (string, error) {
-	log.Println("Claude Completion begun with model...", data.Model)
+	log.Printf("Claude Completion begun with model...%s.\n", llm.Model())
 	// https://docs.anthropic.com/claude/reference/messages_post
 
 	type Request struct {
@@ -53,8 +57,8 @@ func (llm Claude) Completion(data *LLMQuery) (string, error) {
 	}
 
 	req := Request{
-		Model:     llm.Model,
-		MaxTokens: 1000,
+		Model:     llm.Model(),
+		MaxTokens: 4096,
 		Messages:  data.Messages,
 	}
 
