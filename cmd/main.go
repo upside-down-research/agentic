@@ -12,7 +12,7 @@ import (
 )
 
 var CLI struct {
-	LLMType string `name:"llm" help:"LLM type to use." enum:"openai,ai00" default:"openai"`
+	LLMType string `name:"llm" help:"LLM type to use." enum:"openai,ai00,claude" default:"openai"`
 	// optional flag to set the output path: -o
 	Output *string `name:"output" help:"Output path." type:"path"`
 	// path to initial query
@@ -52,7 +52,6 @@ func main() {
 
 	var s llm.LLMServer
 	if CLI.LLMType == "ai00" {
-
 		s = llm.AI00Server{
 			Host: "https://localhost:65530",
 		}
@@ -63,6 +62,15 @@ func main() {
 		}
 		s = llm.OpenAI{
 			Key: key,
+		}
+	} else if CLI.LLMType == "claude" {
+		key, found := os.LookupEnv("CLAUDE_API_KEY")
+		if !found {
+			log.Fatal("CLAUDE_API_KEY not found")
+		}
+		s = llm.Claude{
+			Key:   key,
+			Model: "claude-3-haiku-20240307", // opus is EXPENSIVE.
 		}
 	} else {
 		log.Fatal("Unknown LLM type")
@@ -81,10 +89,8 @@ func main() {
 			Assistant: "assistant"},
 		messages,
 	)
-	//sb := strings.Builder{}
-	//var promptResult string
+
 restart:
-	//sb.Reset()
 	messages = []llm.Messages{
 		{
 			Role: "user", Content: query,
@@ -95,30 +101,8 @@ restart:
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("Candidate answer:")
 	fmt.Println(answer)
-	//promptResult := StringPrompt("enter to continue, r to reject, c to move to the next phase")
-	//if promptResult == "c" {
-	//	break
-	//} else if promptResult == "r" {
-	//	// Just move back up and retry
-	//	continue
-	//} else {
-	//	sb.WriteString(answer)
-	//	q.Messages = append(q.Messages, llm.Messages{
-	//		Role:    "assistant",
-	//		Content: answer,
-	//	})
-	//	q.Messages = append(q.Messages, llm.Messages{
-	//		Role:    "user",
-	//		Content: "Continue as per initial instructions. As a reminder, the initial instructions were: " + query + "., and the results to date are: " + sb.String() + ". Please use the initial instructions and complete the task",
-	//	})
-	//}
-
-	//fmt.Printf("To recap, this is the output")
-	//promptResult = StringPrompt("Are you ready to review it?")
-	//if promptResult == "n" {
-	//	log.Fatal("Exiting")
-	//}
 	r, _ := AnswerMe(s, fmt.Sprintf(`Does the output below meet the requirements below? 
 Output: 
 
@@ -145,14 +129,18 @@ Please formulate the answer in this JSON template:
 	}
 
 	resp := Response{}
-	json.Unmarshal([]byte(r), &resp)
+	err = json.Unmarshal([]byte(r), &resp)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 
 	fmt.Println("ANSWER: ", resp.Answer)
 	if strings.ToLower(resp.Answer) == "no" {
 		log.Println("Restarting, analysis says incorrect", resp.Reason)
 		query = initialQuery + `
 This was an attempt at an answer: ` + answer +
-			`But, according to " + resp.Reason + ", it is incorrect. Please try again.`
+			"But, according to " + resp.Reason + ", it is incorrect. Please try again."
 
 		goto restart
 	} else {
