@@ -1,0 +1,17 @@
+Does the output below meet the requirements below?
+Output:
+
+%s
+
+Requirements:
+
+%s
+
+After reviewing the output in relationship to the requirements, please assess the output for compliance with the requirements. Is it complete and correct?
+
+Please formulate the answer in this JSON template:
+
+{
+   "answer": "$YES_OR_NO",
+   "reason": "$REASONING"
+}

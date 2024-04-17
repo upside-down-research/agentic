@@ -2,21 +2,28 @@ package main
 
 import (
 	"bufio"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"github.com/alecthomas/kong"
-	"log"
+
+	"github.com/charmbracelet/log"
 	"os"
 	"strings"
+
 	"upside-down-research.com/oss/agentic/internal/llm"
 )
 
+//go:embed prompts/plan-review.prompt
+var planReview string
+
+//go:embed prompts/planner.prompt
+var planner string
+
 var CLI struct {
-	LLMType string `name:"llm" help:"LLM type to use." enum:"openai,ai00,claude" default:"openai"`
-	// optional flag to set the output path: -o
-	Output *string `name:"output" help:"Output path." type:"path"`
-	// path to initial query
-	Path string `arg:"" name:"path" help:"Path to read." type:"path"`
+	LLMType    string `name:"llm" help:"LLM type to use." enum:"openai,ai00,claude" default:"openai"`
+	Output     string `name:"output" help:"Output path." type:"path"`
+	TicketPath string `arg:"" name:"ticket" help:"TicketPath to read." type:"path"`
 }
 
 func StringPrompt(label string) string {
@@ -32,25 +39,10 @@ func StringPrompt(label string) string {
 	return strings.TrimSpace(s)
 }
 
-func AnswerMe(l llm.LLMServer, query string) (string, error) {
-	messages := []llm.Messages{
-		{
-			Role:    "user",
-			Content: query,
-		},
-	}
-	q := llm.NewChatQuery(
-		llm.Names{User: "user",
-			Assistant: "assistant"},
-		messages,
-	)
-	return l.Completion(q)
-}
-
 func main() {
 	_ = kong.Parse(&CLI)
 
-	var s llm.LLMServer
+	var s llm.Server
 	if CLI.LLMType == "ai00" {
 		s = llm.AI00Server{
 			Host: "https://localhost:65530",
@@ -71,92 +63,58 @@ func main() {
 		log.Fatal("Unknown LLM type")
 	}
 
-	bytes, err := os.ReadFile(CLI.Path)
+	bytes, err := os.ReadFile(CLI.TicketPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	query := string(bytes)
 	initialQuery := query
 
-	var messages []llm.Messages
-	q := llm.NewChatQuery(
-		llm.Names{User: "user",
-			Assistant: "assistant"},
-		messages,
-	)
+	fmt.Printf("Initial request:\n\n%s\n", initialQuery)
+	fmt.Println("--------------------------------------------------------------------------")
 
-	// instruct the AI to analyze the query and flesh it out to guarantee a better response.
-	reviewQuery := `Please analyze the query below and address any gaps. Add whatever is required to make the answer explicit and complete:\n\n` + query
-	results, err := AnswerMe(s, reviewQuery)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Final query:\n\n%s\n", results)
-
-	query = results
-restart:
-	messages = []llm.Messages{
-		{
-			Role: "user", Content: query,
-		},
-	}
-	q.Messages = messages
-	answer, err := s.Completion(q)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Candidate answer:")
-	fmt.Println(answer)
-	r, _ := AnswerMe(s, fmt.Sprintf(`Does the output below meet the requirements below? 
-Output: 
-
-%s
-
-Requirements:
-
-%s
-
-After reviewing the output in relationship to the requirements, please assess the output for compliance with the requirements. Is it complete and correct?
-
-Please formulate the answer in this JSON template:
-
-{
-   "answer": "$YES_OR_NO",
-   "reason": "$REASONING"
-}
-
-`, answer, query))
-
-	type Response struct {
-		Answer string `json:"answer"`
-		Reason string `json:"reason"`
-	}
-
-	resp := Response{}
-	err = json.Unmarshal([]byte(r), &resp)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	fmt.Println("ANSWER: ", resp.Answer)
-	if strings.ToLower(resp.Answer) == "no" {
-		log.Println("Restarting, analysis says incorrect", resp.Reason)
-		query = initialQuery + `
-This was an attempt at an answer: ` + answer +
-			"But, according to " + resp.Reason + ", it is incorrect. Please try again."
-
-		goto restart
-	} else {
-		log.Println("Analysis says correct: ", resp.Reason)
-		fmt.Println(answer)
-	}
-
-	if CLI.Output != nil {
-		err := os.WriteFile(*CLI.Output, []byte(answer), 0644)
+	query = initialQuery
+	for {
+		answer, err := llm.AnswerMe(s, fmt.Sprintf(planner, query))
 		if err != nil {
 			log.Fatal(err)
 		}
-	}
+		// is it any good?
+		log.Info("Reviewing the answer given...")
+		r, err := llm.AnswerMe(s, fmt.Sprintf(planReview, answer, query))
+		if err != nil {
+			log.Fatal(err)
+		}
 
+		type Response struct {
+			Answer string `json:"answer"`
+			Reason string `json:"reason"`
+		}
+
+		log.Info("Attempting to unmarshal JSON response...")
+		resp := Response{}
+		err = json.Unmarshal([]byte(r), &resp)
+		if err != nil {
+			log.Info("Response: ", resp)
+			log.Fatalf("failed to unmarshal json: %v", err)
+		}
+
+		fmt.Println("ANSWER: ", resp.Answer)
+		if strings.ToLower(resp.Answer) == "no" {
+			log.Info("Restarting, analysis says incorrect", resp.Reason)
+			query = initialQuery + `
+This was an attempt at an answer: ` + answer +
+				"But, according to " + resp.Reason + ", it is incorrect. Please try again."
+
+			continue
+		} else {
+			log.Info("Analysis says correct: ", "reason", resp.Reason)
+			log.Info("See file for output ", "file", CLI.Output)
+			err := os.WriteFile(CLI.Output, []byte(answer), 0644)
+			if err != nil {
+				log.Fatal(err)
+			}
+			break
+		}
+	}
 }
