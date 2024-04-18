@@ -1,6 +1,12 @@
 package llm
 
-type LLMQuery struct {
+import (
+	"github.com/charmbracelet/log"
+	"time"
+	"upside-down-research.com/oss/agentic/internal/o11y"
+)
+
+type Query struct {
 	Model            string     `json:"model,omitempty"`
 	Messages         []Messages `json:"messages"`
 	MaxTokens        int        `json:"max_tokens"`
@@ -14,8 +20,8 @@ type LLMQuery struct {
 	Names            Names      `json:"names"`
 }
 
-func NewChatQuery(n Names, m []Messages) *LLMQuery {
-	r := &LLMQuery{
+func NewChatQuery(n Names, m []Messages) *Query {
+	r := &Query{
 		Messages:         m,
 		MaxTokens:        1000,
 		TopP:             0.5,
@@ -24,14 +30,29 @@ func NewChatQuery(n Names, m []Messages) *LLMQuery {
 		FrequencyPenalty: 0.3,
 		PenaltyDecay:     0.9982686325973925,
 		Stop:             []string{"↵User:", "User:", "\n\n"},
-		Stream:           true,
+		Stream:           false,
 		Names:            n,
 	}
 	return r
 }
 
-type LLMServer interface {
-	Completion(data *LLMQuery) (string, error)
+type Middleware = func(query *Query) (string, error)
+
+func TimeWrapper(model string) func(query *Query, next Middleware) (string, error) {
+	return func(query *Query, next Middleware) (string, error) {
+		now := time.Now()
+		s, err := next(query)
+		defer func() {
+			end := time.Now()
+			o11y.WriteData("llm_duration", map[string]string{"model": query.Model}, float32(end.Sub(now).Milliseconds())/1000)
+			log.Printf("%v Completion took %v", model, end.Sub(now))
+		}()
+		return s, err
+	}
+}
+
+type Server interface {
+	Completion(data *Query) (string, error)
 	Model() string
 }
 
@@ -44,6 +65,17 @@ type Names struct {
 	Assistant string `json:"assistant"`
 }
 
-type VertexAI struct {
-	// no idea
+func AnswerMe(l Server, query string) (string, error) {
+	messages := []Messages{
+		{
+			Role:    "user",
+			Content: query,
+		},
+	}
+	q := NewChatQuery(
+		Names{User: "user",
+			Assistant: "assistant"},
+		messages,
+	)
+	return l.Completion(q)
 }

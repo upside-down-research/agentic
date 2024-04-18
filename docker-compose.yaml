@@ -1,0 +1,32 @@
+version:  "3.8"
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+  pushgateway:
+    image: prom/pushgateway
+    container_name: pushgateway
+    ports:
+      - 9091:9091
+  grafana:
+    image: grafana/grafana-oss:latest
+    environment:
+      GF_SECURITY_ADMIN_USER: 'admin'
+      GF_SECURITY_ADMIN_PASSWORD: 'admin'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource,grafana-polystat-panel"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+volumes:
+  grafana_data:

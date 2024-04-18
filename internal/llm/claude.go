@@ -4,14 +4,23 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/charmbracelet/log"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
 type Claude struct {
-	Key    string
-	_model string
+	Key          string
+	_model       string
+	_middlewares []Middleware
+}
+
+func (llm Claude) Middlewares() []Middleware {
+	return llm._middlewares
+}
+
+func (llm Claude) PushMiddleware(mw Middleware) {
+	llm._middlewares = append(llm._middlewares, mw)
 }
 
 func NewClaude(key, model string) *Claude {
@@ -46,7 +55,12 @@ type Usage struct {
 	OutputTokens int `json:"output_tokens"`
 }
 
-func (llm Claude) Completion(data *LLMQuery) (string, error) {
+func (llm Claude) Completion(data *Query) (string, error) {
+	TimedCompletion := TimeWrapper(llm.Model())
+	return TimedCompletion(data, llm._completion)
+}
+
+func (llm Claude) _completion(data *Query) (string, error) {
 	log.Printf("Claude Completion begun with model...%s.\n", llm.Model())
 	// https://docs.anthropic.com/claude/reference/messages_post
 

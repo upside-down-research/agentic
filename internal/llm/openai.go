@@ -3,15 +3,23 @@ package llm
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/charmbracelet/log"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 )
 
 type OpenAI struct {
-	Key    string
-	_model string
+	Key          string
+	_model       string
+	_middlewares []Middleware
+}
+
+func (llm OpenAI) Middlewares() []Middleware {
+	return llm._middlewares
+}
+func (llm OpenAI) PushMiddleware(mw Middleware) {
+	llm._middlewares = append(llm._middlewares, mw)
 }
 
 func (llm OpenAI) Model() string {
@@ -24,8 +32,13 @@ func NewOpenAI(key string, model string) *OpenAI {
 	}
 }
 
-func (llm OpenAI) Completion(data *LLMQuery) (string, error) {
-	log.Println("OpenAI Completion begun...")
+func (llm OpenAI) Completion(data *Query) (string, error) {
+	TimedCompletion := TimeWrapper(llm.Model())
+	return TimedCompletion(data, llm._completion)
+}
+
+func (llm OpenAI) _completion(data *Query) (string, error) {
+	log.Info("OpenAI Completion begun...")
 	type CompletionResponse struct {
 		ID      string `json:"id"`
 		Object  string `json:"object"`
@@ -50,14 +63,22 @@ func (llm OpenAI) Completion(data *LLMQuery) (string, error) {
 	url := "https://api.openai.com/v1/chat/completions"
 	method := "POST"
 
+	type ResponseFormat struct {
+		Type string `json:"type"`
+	}
 	type OpenAIQuery struct {
 		Model    string     `json:"model"`
 		Messages []Messages `json:"messages"`
+
+		ResponseFormat `json:"response_format"`
 	}
 
 	payload := &OpenAIQuery{
 		Model:    llm.Model(),
 		Messages: data.Messages,
+		ResponseFormat: ResponseFormat{
+			Type: "json_object",
+		},
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -75,7 +96,7 @@ func (llm OpenAI) Completion(data *LLMQuery) (string, error) {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+llm.Key)
 
-	log.Println("OpenAI Completion request...")
+	log.Info("OpenAI Completion request...")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -87,7 +108,6 @@ func (llm OpenAI) Completion(data *LLMQuery) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Println(string(body))
 	var CompletionResponseData CompletionResponse
 	err = json.Unmarshal(body, &CompletionResponseData)
 	if err != nil {
@@ -95,7 +115,7 @@ func (llm OpenAI) Completion(data *LLMQuery) (string, error) {
 	}
 
 	if len(CompletionResponseData.Choices) == 0 {
-		log.Println(string(body))
+		log.Error(string(body))
 		return "", nil
 	}
 

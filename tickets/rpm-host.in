@@ -1,0 +1,13 @@
+
+Your goal is to implement an RPM hosting solution with authentication and authorization.
+Consider this problem statement and modify any of the following tasks to conform to it..
+
+The solution should be able to store and retrieve RPM packages.
+
+Uploads should be authenticated and authorized, and synthesize an appropriate RPM archive.
+
+AuthN and AuthZ should be performed via a typical Google Oauth lookup.
+
+Unit and integration tests should be part of the package.
+
+The implementation should be in the Go programming language.

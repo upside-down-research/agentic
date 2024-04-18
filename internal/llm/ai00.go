@@ -1,42 +1,53 @@
 package llm
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"strings"
-
-	//	"github.com/tidwall/gjson"
-	"log"
+	"github.com/charmbracelet/log"
 	"net/http"
 )
 
 type AI00Server struct {
-	Host string
+	Host        string
+	middlewares []Middleware
+}
+
+func (llm AI00Server) Middlewares() []Middleware {
+	return llm.middlewares
+}
+
+func (llm AI00Server) PushMiddleware(mw Middleware) {
+	llm.middlewares = append(llm.middlewares, mw)
 }
 
 func (llm AI00Server) Model() string {
 	return "ai00"
 }
 
-type Response struct {
-	Object  string `json:"object"`
-	Model   string `json:"model"`
+type AI00Response struct {
 	Choices []struct {
-		Delta struct {
+		FinishReason string `json:"finish_reason"`
+		Index        int    `json:"index"`
+		Message      struct {
 			Content string `json:"content"`
-		} `json:"delta"`
-		Index        int `json:"index"`
-		FinishReason any `json:"finish_reason"`
+			Role    string `json:"role"`
+		} `json:"message"`
 	} `json:"choices"`
+	Model  string `json:"model"`
+	Object string `json:"object"`
+	Usage  struct {
+		CompletionTokens int `json:"completion_tokens"`
+		PromptTokens     int `json:"prompt_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
 }
 
-func parseEvent(rawEvent string) (*Response, error) {
+func parseEvent(rawEvent string) (*AI00Response, error) {
 	const dataPrefix = "data:"
 	if len(rawEvent) > len(dataPrefix) && rawEvent[:len(dataPrefix)] == dataPrefix {
-		var response Response
+		var response AI00Response
 		err := json.Unmarshal([]byte(rawEvent[len(dataPrefix):]), &response)
 		if err != nil {
 			return nil, err
@@ -46,7 +57,14 @@ func parseEvent(rawEvent string) (*Response, error) {
 	}
 	return nil, fmt.Errorf("invalid event format")
 }
-func (s AI00Server) Completion(data *LLMQuery) (string, error) {
+
+func (llm AI00Server) Completion(data *Query) (string, error) {
+	TimedCompletion := TimeWrapper(llm.Model())
+	return TimedCompletion(data, llm._completion)
+}
+
+func (llm AI00Server) _completion(data *Query) (string, error) {
+
 	payloadBytes, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		panic(err)
@@ -54,7 +72,7 @@ func (s AI00Server) Completion(data *LLMQuery) (string, error) {
 
 	inputBody := bytes.NewReader(payloadBytes)
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/oai/chat/completions", s.Host), inputBody)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/oai/chat/completions", llm.Host), inputBody)
 	if err != nil {
 		panic(err)
 	}
@@ -63,9 +81,9 @@ func (s AI00Server) Completion(data *LLMQuery) (string, error) {
 	req.Header.Set("Authorization", "Bearer ai00")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Origin", s.Host)
+	req.Header.Set("Origin", llm.Host)
 	req.Header.Set("Pragma", "no-cache")
-	req.Header.Set("Referer", s.Host)
+	req.Header.Set("Referer", llm.Host)
 	req.Header.Set("Sec-Fetch-Dest", "empty")
 	req.Header.Set("Sec-Fetch-Mode", "cors")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
@@ -87,7 +105,6 @@ func (s AI00Server) Completion(data *LLMQuery) (string, error) {
 	defer resp.Body.Close()
 
 	// Process the response
-	fmt.Println("Response status:", resp.Status)
 	if resp.StatusCode != http.StatusOK {
 		// read the entire inputBody
 		buf := new(bytes.Buffer)
@@ -95,33 +112,13 @@ func (s AI00Server) Completion(data *LLMQuery) (string, error) {
 
 		log.Fatalf("Unexpected response status: %s - %s", resp.Status, buf.String())
 	}
-	log.Println("Connected to the SSE server.")
 
-	scanner := bufio.NewScanner(resp.Body)
-	var sb strings.Builder
-	for scanner.Scan() {
-		data := scanner.Text()
-		event, err := parseEvent(data)
-		if err != nil {
-			// log.Printf("Error parsing event: %v", data)
-			continue
-		}
-
-		//fmt.Print(event.Choices[0].Delta.Content)
-		fmt.Print(".")
-		sb.WriteString(event.Choices[0].Delta.Content)
-
-		if event.Choices[0].FinishReason == "stop" {
-			break
-		} else if event.Choices[0].FinishReason == nil {
-			/// no op
-		} else {
-			log.Println("FinishReason: ", event.Choices[0].FinishReason)
-		}
+	// read the entire response body
+	var ai00Response AI00Response
+	err = json.NewDecoder(resp.Body).Decode(&ai00Response)
+	if err != nil {
+		return "", err
 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error reading stream: %v", err)
-	}
-	return sb.String(), nil
+	return ai00Response.Choices[0].Message.Content, nil
 }
