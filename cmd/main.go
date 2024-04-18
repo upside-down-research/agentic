@@ -14,11 +14,39 @@ import (
 	"upside-down-research.com/oss/agentic/internal/llm"
 )
 
-//go:embed prompts/plan-review.prompt
-var planReview string
 
 //go:embed prompts/planner.prompt
 var planner string
+
+// Planner prompt should yield a json that looks like this.
+type Plan struct {
+	Name       string `json:"name"`
+	SystemType string `json:"type"`
+	Rationale  string `json:"rationale"`
+	Definition struct {
+		Inputs []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"inputs"`
+		Outputs []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"outputs"`
+		Behavior string `json:"behavior"`
+	} `json:"definition"`
+}
+
+/go:embed prompts/plan-review.prompt
+var planReview string
+
+// The AcceptableResponse is what the reviewer call should parse to.
+type AcceptableResponse struct {
+	Answer string `json:"answer"`
+	Reason string `json:"reason"`
+}
+
+//go:embed prompts/implement.prompt
+var implement string
 
 var CLI struct {
 	LLMType    string `name:"llm" help:"LLM type to use." enum:"openai,ai00,claude" default:"openai"`
@@ -37,6 +65,46 @@ func StringPrompt(label string) string {
 		}
 	}
 	return strings.TrimSpace(s)
+}
+
+func AnswerAndVerify(s llm.Server, query string) (string, error) {
+	for {
+		answer, err := llm.AnswerMe(s, query)
+		if err != nil {
+			return "", err
+		}
+		// is it any good?
+		var resp AcceptableResponse
+		for {
+			log.Info("Reviewing the answer given...")
+			r, err := llm.AnswerMe(s, fmt.Sprintf(planReview, answer, query))
+			if err != nil {
+				return "", err
+			}
+
+			log.Info("Attempting to unmarshal JSON response...")
+			resp = AcceptableResponse{}
+			err = json.Unmarshal([]byte(r), &resp)
+			if err != nil {
+				log.Info("Not an acceptable response: ", resp)
+				log.Errorf("failed to unmarshal json: %v", err)
+				log.Info("Retrying analysis")
+			} else {
+				break
+			}
+		}
+		fmt.Println("ANSWER: ", resp.Answer)
+		if strings.ToLower(resp.Answer) == "no" {
+			log.Info("Restarting, analysis says incorrect", resp.Reason)
+			query = query + `
+This was an attempt at an answer: ` + answer +
+				"But, according to " + resp.Reason + ", it is incorrect. Please try again, incorporating the fresh information."
+			continue
+		} else {
+			log.Info("Analysis says correct: ", "reason", resp.Reason)
+			return answer, nil
+		}
+	}
 }
 
 func main() {
@@ -73,48 +141,29 @@ func main() {
 	fmt.Printf("Initial request:\n\n%s\n", initialQuery)
 	fmt.Println("--------------------------------------------------------------------------")
 
-	query = initialQuery
-	for {
-		answer, err := llm.AnswerMe(s, fmt.Sprintf(planner, query))
+	planString, err := AnswerAndVerify(s, query)
+
+	plans := []Plan{}
+	err = json.Unmarshal([]byte(planString), &plans)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Given the plans above has passed the acceptance gate.
+	// we implement the plan
+	log.Info("Implementing the plan...")
+	for _, plan := range plans {
+		log.Info("Implementing plan: ", plan.Name)
+		AnswerAndVerify(s, fmt.Sprintf(planner, plan.Name))
+
+		candidatePlan, err := llm.AnswerMe(s, fmt.Sprintf(implement, plan.Name))
 		if err != nil {
 			log.Fatal(err)
 		}
-		// is it any good?
-		log.Info("Reviewing the answer given...")
-		r, err := llm.AnswerMe(s, fmt.Sprintf(planReview, answer, query))
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		type Response struct {
-			Answer string `json:"answer"`
-			Reason string `json:"reason"`
-		}
-
-		log.Info("Attempting to unmarshal JSON response...")
-		resp := Response{}
-		err = json.Unmarshal([]byte(r), &resp)
-		if err != nil {
-			log.Info("Response: ", resp)
-			log.Fatalf("failed to unmarshal json: %v", err)
-		}
-
-		fmt.Println("ANSWER: ", resp.Answer)
-		if strings.ToLower(resp.Answer) == "no" {
-			log.Info("Restarting, analysis says incorrect", resp.Reason)
-			query = initialQuery + `
-This was an attempt at an answer: ` + answer +
-				"But, according to " + resp.Reason + ", it is incorrect. Please try again."
-
-			continue
-		} else {
-			log.Info("Analysis says correct: ", "reason", resp.Reason)
-			log.Info("See file for output ", "file", CLI.Output)
-			err := os.WriteFile(CLI.Output, []byte(answer), 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-			break
-		}
+		log.Info("Candidate plan: ", candidatePlan)
+		llm
+		// check if the implementation is correct
+		// if not, restart
+		// if correct, continue
 	}
 }
