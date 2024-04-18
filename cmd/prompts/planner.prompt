@@ -16,31 +16,56 @@ Each dictionary should have the following keys:
 
 Your decomposition should go into great depth, specifying data types, algorithms, paths, and other expected and explicit information necessary for implementation.
 
-Expected Output:
-[
-  {
-    "name": "...",
-    "type": "...",
-    "definition": {
-      "inputs": [
-        {
-          "name": "...",
-          "type": "..."
-        },
-        ...
-      ],
-      "outputs": [
-        {
-          "name": "...",
-          "type": "..."
-        },
-        ...
-      ],
-      "behavior": "..."
-    },
-    "rationale": "..."
-  },
-  ...
-]
+Expected Output Format in an approximate JSON syntax-:
+{
+  "plans": [
+    {
+      "name": "Plan 1",
+      "type": "Planner",
+      "rationale": "To plan",
+      "definition": {
+        "inputs": [
+          {
+            "name": "Input 1",
+            "type": "String"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "Output 1",
+            "type": "Integer"
+          }
+        ],
+        "behavior": "To plan"
+      }
+    }
+  ]
+}
+
+
+The response will be deserialized into a PlanCollection Go object, with the following definition:
+
+type InOut struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type PlanDefinition struct {
+	Inputs   []InOut `json:"inputs"`
+	Outputs  []InOut `json:"outputs"`
+	Behavior string  `json:"behavior"`
+}
+
+type Plan struct {
+	Name       string         `json:"name"`
+	SystemType string         `json:"type"`
+	Rationale  string         `json:"rationale"`
+	Definition PlanDefinition `json:"definition"`
+}
+
+type PlanCollection struct {
+	Plans []Plan `json:"plans"`
+}
+
 
 Ticket:

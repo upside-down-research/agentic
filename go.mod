@@ -5,6 +5,7 @@ go 1.21.4
 require (
 	github.com/alecthomas/kong v0.9.0
 	github.com/charmbracelet/log v0.4.0
+	github.com/google/uuid v1.3.1
 	github.com/influxdata/influxdb-client-go/v2 v2.13.0
 	github.com/prometheus/client_golang v1.19.0
 )
@@ -16,7 +17,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/charmbracelet/lipgloss v0.10.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
-	github.com/google/uuid v1.3.1 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

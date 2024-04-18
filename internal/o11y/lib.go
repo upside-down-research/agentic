@@ -38,11 +38,18 @@ func NewMetricManager(name, help string, labelNames []string) *MetricManager {
 }
 
 var mm *MetricManager
+var LlmCounter *prometheus.CounterVec
 
 func init() {
 	// Set gauge to some value
 	pusher = push.New("http://localhost:9091", "agentic_pusher") // replace "localhost:9091" with your Pushgateway address
 	mm = NewMetricManager("llm_duration", "LLM duration", []string{"model"})
+	LlmCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "llm_counter",
+		},
+		[]string{"model", "id", "job_name"})
+	pusher.Collector(LlmCounter)
 }
 
 func isUnorderedEqual(a, b []string) bool {

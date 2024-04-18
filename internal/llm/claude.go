@@ -64,16 +64,30 @@ func (llm Claude) _completion(data *Query) (string, error) {
 	log.Printf("Claude Completion begun with model...%s.\n", llm.Model())
 	// https://docs.anthropic.com/claude/reference/messages_post
 
-	type Request struct {
+	type ClaudeRequest struct {
 		Model     string     `json:"model"`
 		MaxTokens int        `json:"max_tokens"`
 		Messages  []Messages `json:"messages"`
+		// https://docs.anthropic.com/claude/docs/system-prompts
+		System string `json:"system"`
 	}
 
-	req := Request{
+	req := ClaudeRequest{
 		Model:     llm.Model(),
 		MaxTokens: 4096,
 		Messages:  data.Messages,
+		// Claude doesn't like json.
+		System: `You will respond to ALL human messages in JSON. 
+                    Make sure the response correctly follows the JSON format.
+                    If comments are to be made, they will go in a "comments" block in the JSON objects.
+
+                    Remember these rules: building JSON: 
+                   The first is that newline is not allowed in a JSON string. 
+                   Use the two bytes \n to specify a newline, not an actual newline. 
+                   If you use an interpreted string literal, then the \ must be quoted with a \. Example:
+                   "Hello\\nWorld"
+
+                    Always begin with a { or a [.`,
 	}
 
 	reqBody, err := json.Marshal(req)

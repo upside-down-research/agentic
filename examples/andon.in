@@ -1,0 +1,26 @@
+Instruction: Concisely make a program in the Go programming language building a webapp.
+
+The webapp will be an implementation of the Andon light idea.
+
+Notionally, the web app will have a list of "capabilities", and the ability to "RED LIGHT" any of the capability
+
+The webapp should have the following features:
+1. A web UI with a form that has a name of a capability, a flag that indicates "enable" or "disable" and a submit button.
+2. An internal state that tracks the capabilities and their status.
+3. An API that allows the user to programmatically change/query the status of the capabilities. This route will be:
+     - GET /capability/{name}/state
+     - POST /capability/{name}/state
+   The structure of the JSON payload for the POST request should be:
+   ```
+   {
+     "state": "enabled"
+   }
+   ```
+   If State is "enable", the capability is enabled, if it is "disable", the capability is disabled.
+4. The backend storage should be a list of files on the filesystem. Each capability should map to a file that contains the state of the capability.
+   The file should be named after the capability name, and the content of the file should be the state of the capability.
+   The path of the files should be /var/run/andon/{capability_name}.state
+
+This should be done using the Go language only. It must be complete and correct.
+
+```

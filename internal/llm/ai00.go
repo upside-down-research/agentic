@@ -64,17 +64,19 @@ func (llm AI00Server) Completion(data *Query) (string, error) {
 }
 
 func (llm AI00Server) _completion(data *Query) (string, error) {
-
+	log.Info("AI00 Completion begun...")
 	payloadBytes, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
-		panic(err)
+		log.Errorf("Failed to marshal data: %v", err)
+		return "", err
 	}
 
 	inputBody := bytes.NewReader(payloadBytes)
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/oai/chat/completions", llm.Host), inputBody)
 	if err != nil {
-		panic(err)
+		log.Errorf("Failed to create request: %v", err)
+		return "", err
 	}
 
 	req.Header.Set("Accept", "*/*")
@@ -100,7 +102,8 @@ func (llm AI00Server) _completion(data *Query) (string, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Errorf("Failed to send request: %v", err)
+		return "", err
 	}
 	defer resp.Body.Close()
 
@@ -110,15 +113,17 @@ func (llm AI00Server) _completion(data *Query) (string, error) {
 		buf := new(bytes.Buffer)
 		_, _ = buf.ReadFrom(resp.Body)
 
-		log.Fatalf("Unexpected response status: %s - %s", resp.Status, buf.String())
+		log.Errorf("Unexpected response status: %s - %s", resp.Status, buf.String())
+		return "", fmt.Errorf("unexpected response status: %s", resp.Status)
 	}
 
 	// read the entire response body
 	var ai00Response AI00Response
 	err = json.NewDecoder(resp.Body).Decode(&ai00Response)
 	if err != nil {
+		log.Errorf("Failed to decode response from AI00: %v", err)
 		return "", err
 	}
-
+	// log.Debugf("AI00 Response: %v", ai00Response)
 	return ai00Response.Choices[0].Message.Content, nil
 }

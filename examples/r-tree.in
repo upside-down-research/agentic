@@ -1,0 +1,20 @@
+Instruction: Concisely make a module in the Go programming language building an R-tree data structure.
+
+This should be done without third party libraries, and using the Go language only. It must be complete and correct.
+All functions must be implemented.
+
+Fill in this template with appropriate Go code and comments. Do not continue past the END comment. You must contain
+the END comment to finish the assignment.
+
+Template:
+```
+/* structures */
+
+
+/* private functions */
+
+/* public functions */
+
+/* END */
+
+```

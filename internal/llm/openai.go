@@ -87,7 +87,7 @@ func (llm OpenAI) _completion(data *Query) (string, error) {
 	}
 
 	client := &http.Client{
-		Timeout: time.Duration(60 * time.Second),
+		Timeout: time.Duration(120 * time.Second),
 	}
 	req, err := http.NewRequest(method, url, bytes.NewReader(payloadBytes))
 	if err != nil {
@@ -97,13 +97,12 @@ func (llm OpenAI) _completion(data *Query) (string, error) {
 	req.Header.Add("Authorization", "Bearer "+llm.Key)
 
 	log.Info("OpenAI Completion request...")
-
 	res, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer res.Body.Close()
-
+	log.Debugf("reading the response")
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return "", err
@@ -115,7 +114,7 @@ func (llm OpenAI) _completion(data *Query) (string, error) {
 	}
 
 	if len(CompletionResponseData.Choices) == 0 {
-		log.Error(string(body))
+		log.Error("No results given", "body", string(body), "query", payload)
 		return "", nil
 	}
 

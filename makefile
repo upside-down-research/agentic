@@ -5,6 +5,7 @@ all: output/agentic
 
 output/agentic: $(ASSET_FILES)
 	@mkdir -p output
+	@rm -f  output/agentic
 	@go build -o output/agentic cmd/main.go
 
 run: output/agentic
