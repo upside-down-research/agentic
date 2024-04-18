@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/log"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 type Claude struct {
@@ -96,7 +97,9 @@ func (llm Claude) _completion(data *Query) (string, error) {
 		return "", err
 	}
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 120 * time.Second,
+	}
 	httpReq, err := http.NewRequest("POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(reqBody))
 	if err != nil {
 		fmt.Println("Error creating request:", err)

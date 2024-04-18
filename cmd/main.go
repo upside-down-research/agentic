@@ -106,6 +106,38 @@ type RunRecord struct {
 	Takes  []string `json:"analysis"`
 }
 
+func (runRecord *RunRecord) WriteFile(outputPath, runID string) {
+	runDirectory := path.Join(outputPath, runID, fmt.Sprintf("%d", runRecord.ID))
+	err := os.MkdirAll(runDirectory, os.ModePerm)
+	if err != nil {
+		log.Error("Failed to write runRecord record: ", err)
+		return
+	}
+	// open file and write to
+	queryPath := runDirectory + "/query.txt"
+	err = os.WriteFile(queryPath, []byte(runRecord.Query), os.ModePerm)
+	if err != nil {
+		log.Error("Failed to write query: ", err)
+	}
+	answerPath := runDirectory + "/answer.txt"
+	err = os.WriteFile(answerPath, []byte(runRecord.Answer), os.ModePerm)
+	if err != nil {
+		log.Error("Failed to write answer: ", err)
+	}
+	analysisPath := runDirectory + "/analysis/"
+	err = os.MkdirAll(analysisPath, os.ModePerm)
+	if err != nil {
+		log.Error("Failed to create analysis directory: ", err)
+		return
+	}
+	for idx, take := range runRecord.Takes {
+		err = os.WriteFile(fmt.Sprintf("%s/%d", analysisPath, idx), []byte(take), os.ModePerm)
+		if err != nil {
+			log.Error("Failed to write analysis: ", err)
+		}
+	}
+}
+
 // A Run is a top level structure describing the history of the program invocation.
 type Run struct {
 	RunID string `json:"run_id"`
@@ -138,6 +170,8 @@ func (run *Run) AppendRecord(query string, answer string, takes []string) {
 		Takes:  takes,
 	}
 	run.latestRun = run.latestRun + 1
+	rr := run.RunRecords[id]
+	rr.WriteFile(run.OutputPath, run.RunID)
 }
 
 // WriteData should be used as a defer after a Run is created.
@@ -151,35 +185,7 @@ func (run *Run) WriteData() {
 		return
 	}
 	for _, runRecord := range run.RunRecords {
-		runDirectory := run.OutputPath + "/" + run.RunID + "/" + fmt.Sprintf("%d", runRecord.ID)
-		err = os.MkdirAll(runDirectory, os.ModePerm)
-		if err != nil {
-			log.Error("Failed to write runRecord record: ", err)
-			return
-		}
-		// open file and write to
-		queryPath := runDirectory + "/query.txt"
-		err := os.WriteFile(queryPath, []byte(runRecord.Query), os.ModePerm)
-		if err != nil {
-			log.Error("Failed to write query: ", err)
-		}
-		answerPath := runDirectory + "/answer.txt"
-		err = os.WriteFile(answerPath, []byte(runRecord.Answer), os.ModePerm)
-		if err != nil {
-			log.Error("Failed to write answer: ", err)
-		}
-		analysisPath := runDirectory + "/analysis/"
-		err = os.MkdirAll(analysisPath, os.ModePerm)
-		if err != nil {
-			log.Error("Failed to create analysis directory: ", err)
-			continue
-		}
-		for idx, take := range runRecord.Takes {
-			err = os.WriteFile(fmt.Sprintf("%s/%d", analysisPath, idx), []byte(take), os.ModePerm)
-			if err != nil {
-				log.Error("Failed to write analysis: ", err)
-			}
-		}
+		runRecord.WriteFile(run.OutputPath, run.RunID)
 	}
 }
 
@@ -285,7 +291,13 @@ func main() {
 		if !found {
 			log.Fatal("CLAUDE_API_KEY not found")
 		}
-		s = llm.NewClaude(key, "claude-3-haiku-20240307") // opus is EXPENSIVE.
+		if CLI.Model == nil {
+			// s = llm.NewClaude(key, "claude-3-opus-20240229")
+			s = llm.NewClaude(key, "claude-3-haiku-20240307")
+		} else {
+			s = llm.NewClaude(key, *CLI.Model)
+		}
+
 	} else {
 		log.Fatal("Unknown LLM type")
 	}
