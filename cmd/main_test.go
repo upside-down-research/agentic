@@ -113,7 +113,13 @@ func TestRun_AnswerAndVerify(t *testing.T) {
 				latestRun:  tt.fields.latestRun,
 				Mutex:      tt.fields.Mutex,
 			}
-			got, err := run.AnswerAndVerify(tt.args.s, tt.args.query, tt.args.finalOutput)
+			params := &llm.AnswerMeParams{
+				LLM:     tt.args.s,
+				Query:   tt.args.query,
+				AgentId: run.RunID,
+				Jobname: "test",
+			}
+			got, err := run.AnswerAndVerify(params, tt.args.finalOutput)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AnswerAndVerify() error = %v, wantErr %v", err, tt.wantErr)
 				return
