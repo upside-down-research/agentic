@@ -1,0 +1,23 @@
+# Disable bzlmod and use WORKSPACE instead
+common --noenable_bzlmod
+
+# Build settings
+build --incompatible_strict_action_env
+
+# Show test output
+test --test_output=errors
+
+# Use a static value for PATH
+build --action_env=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Enable worker processes for faster builds
+build --worker_max_instances=4
+
+# Platform settings
+build --enable_platform_specific_config
+
+# Output options
+build --show_timestamps
+
+# Go specific settings
+build --@io_bazel_rules_go//go/config:pure

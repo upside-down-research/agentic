@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "cmd_lib",
+    srcs = ["main.go"],
+    embedsrcs = glob(["prompts/*"]),
+    importpath = "upside-down-research.com/oss/agentic/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//internal/llm",
+        "//internal/o11y",
+        "@com_github_alecthomas_kong//:kong",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_binary(
+    name = "agentic",
+    embed = [":cmd_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "cmd_test",
+    srcs = ["main_test.go"],
+    embed = [":cmd_lib"],
+)
