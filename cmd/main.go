@@ -80,10 +80,11 @@ type ImplementedPlan struct {
 }
 
 var CLI struct {
-	LLMType    string  `name:"llm" help:"LLM type to use." enum:"openai,ai00,claude" default:"openai"`
+	LLMType    string  `name:"llm" help:"LLM type to use." enum:"openai,ai00,claude,bedrock" default:"openai"`
 	Output     string  `name:"output" help:"Output directory for details." type:"path"`
 	TicketPath string  `arg:"" name:"ticket" help:"TicketPath to read." type:"path"`
 	Model      *string `name:"model" help:"Model to use; leave blank for agentic pick"`
+	AWSRegion  *string `name:"aws-region" help:"AWS region for Bedrock (defaults to us-east-1)"`
 }
 
 func StringPrompt(label string) string {
@@ -297,6 +298,27 @@ func main() {
 		} else {
 			s = llm.NewClaude(key, *CLI.Model)
 		}
+
+	} else if CLI.LLMType == "bedrock" {
+		// Use AWS credentials from environment, ~/.aws/credentials, or IAM role
+		region := "us-east-1" // default region
+		if CLI.AWSRegion != nil {
+			region = *CLI.AWSRegion
+		}
+
+		var model string
+		if CLI.Model == nil {
+			// Default to Claude 3.5 Sonnet on Bedrock
+			model = llm.BedrockModelIDs.Claude35Sonnet
+		} else {
+			model = *CLI.Model
+		}
+
+		bedrockClient, err := llm.NewBedrock(region, model)
+		if err != nil {
+			log.Fatal("Failed to create Bedrock client: ", err)
+		}
+		s = bedrockClient
 
 	} else {
 		log.Fatal("Unknown LLM type")
