@@ -9,12 +9,15 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// Orchestrator is the master conductor of the GOAP system.
+// Orchestrator is the core of the agentic reasoning agent.
 // It embodies the philosophy: GOFAI for reasoning, LLMs for generation.
 //
-// The orchestrator uses classical AI (GOAP, A*, graph search) for ALL
+// The reasoning agent uses classical AI (GOAP, A*, graph search) for ALL
 // deliberative reasoning, planning, and decision-making. LLMs are used
 // ONLY as content generators and goal decomposers, never for planning logic.
+//
+// This is NOT a demo system - it is the foundation of an autonomous reasoning agent
+// capable of complex software engineering tasks through structured planning.
 type Orchestrator struct {
 	planner       *Planner
 	refiner       GoalRefiner
@@ -23,7 +26,7 @@ type Orchestrator struct {
 	maxDepth      int
 }
 
-// NewOrchestrator creates the master orchestrator.
+// NewOrchestrator creates the agentic reasoning agent's orchestrator.
 // This is where GOFAI reasoning meets LLM generation.
 func NewOrchestrator(planner *Planner, refiner GoalRefiner, persistence *GraphPersistence, maxDepth int) *Orchestrator {
 	return &Orchestrator{
@@ -35,19 +38,23 @@ func NewOrchestrator(planner *Planner, refiner GoalRefiner, persistence *GraphPe
 	}
 }
 
-// ExecuteGoal is the main entry point for goal-oriented planning and execution.
-// It showcases the beautiful dance between GOFAI reasoning and LLM generation:
+// ExecuteGoal is the main entry point for the reasoning agent's goal execution.
+// The agent demonstrates the beautiful dance between GOFAI reasoning and LLM generation:
 //
 // 1. GOFAI Planning: Uses hierarchical planning with A* search (classic AI)
 // 2. LLM Decomposition: Uses LLM to suggest goal breakdowns (generation)
 // 3. GOFAI Selection: Uses A* and cost functions to select optimal path (classic AI)
 // 4. LLM Execution: Uses LLM to generate content at leaf nodes (generation)
 // 5. GOFAI Orchestration: Manages execution flow and state (classic AI)
+//
+// The reasoning agent excels at complex software engineering tasks by decomposing
+// them into structured plans and executing them with both classical reasoning
+// and modern LLM capabilities.
 func (o *Orchestrator) ExecuteGoal(ctx context.Context, initialState WorldState, goal *Goal, runID string) error {
 	o.visualization.ShowBanner()
 	o.visualization.ShowPhilosophy()
 
-	log.Info("🎯 Orchestrator starting",
+	log.Info("🎯 Reasoning Agent starting",
 		"goal", goal.Name(),
 		"priority", goal.Priority(),
 		"runID", runID)

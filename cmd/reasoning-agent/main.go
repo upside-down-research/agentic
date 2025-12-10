@@ -11,14 +11,17 @@ import (
 	goapactions "upside-down-research.com/oss/agentic/internal/goap/actions"
 )
 
-// This demo showcases the beautiful dance between GOFAI reasoning and LLM generation.
-// Watch as classical AI planning orchestrates LLM content generation.
+// Reasoning Agent: The agentic GOAP-based reasoning system.
+// Embodies the philosophy: GOFAI for reasoning, LLMs for generation.
+// This agent orchestrates complex software engineering tasks through classical AI planning
+// and delegates content generation to LLMs.
 
 func main() {
 	log.SetLevel(log.InfoLevel)
 
 	fmt.Println()
-	fmt.Println("🎭 GOAP Demo: Building a Feature with Quality Gates")
+	fmt.Println("🧠 Agentic Reasoning Agent: Building a Feature with Quality Gates")
+	fmt.Println("    Philosophy: GOFAI for reasoning, LLMs for generation")
 	fmt.Println()
 
 	// Get working directory
@@ -54,31 +57,31 @@ func main() {
 	// PHASE 4: Create the GOFAI planner (the reasoning monarch!)
 	planner := goap.NewPlanner(availableActions)
 
-	// PHASE 5: Create a simple refiner (in real system, would use LLM refiner)
-	refiner := NewDemoRefiner()
+	// PHASE 5: Create a simple refiner (in production, would use LLM-based goal refiner)
+	refiner := NewSimpleRefiner()
 
-	// PHASE 6: Set up persistence
-	outputPath := "./output/goap-demo"
+	// PHASE 6: Set up persistence for the reasoning agent's plan graphs
+	outputPath := "./output/reasoning-agent"
 	os.MkdirAll(outputPath, 0755)
 	persistence := goap.NewGraphPersistence(outputPath)
 
-	// PHASE 7: Create the orchestrator - where GOFAI meets LLM
+	// PHASE 7: Create the orchestrator - where GOFAI reasoning meets LLM generation
 	orchestrator := goap.NewOrchestrator(planner, refiner, persistence, 5)
 
-	// PHASE 8: Execute! Watch the magic happen
+	// PHASE 8: Execute! GOFAI reasons the plan, LLMs generate content
 	ctx := context.Background()
-	runID := fmt.Sprintf("demo-%d", time.Now().Unix())
+	runID := fmt.Sprintf("run-%d", time.Now().Unix())
 
 	err := orchestrator.ExecuteGoal(ctx, initialState, goal, runID)
 
 	if err != nil {
-		log.Error("Demo execution failed", "error", err)
+		log.Error("Reasoning agent execution failed", "error", err)
 		os.Exit(1)
 	}
 
-	log.Info("🎉 Demo completed successfully!")
+	log.Info("🎉 Reasoning agent completed successfully!")
 	fmt.Println()
-	fmt.Println("📁 Check the plan graph at:", outputPath+"/"+runID+"/graph/")
+	fmt.Println("📁 Plan graph persisted at:", outputPath+"/"+runID+"/graph/")
 	fmt.Println()
 }
 
@@ -135,7 +138,7 @@ func createRichActionSet(workDir string) []goap.Action {
 	actions = append(actions, goapactions.NewRunGoTestsAction(workDir, "./...", true))
 
 	// Coverage improvement (iterative GOFAI + LLM)
-	actionCtx := &goapactions.ActionContext{} // Simplified for demo
+	actionCtx := &goapactions.ActionContext{} // Simplified context for this example
 	actions = append(actions, goapactions.NewImproveCoverageAction(actionCtx, workDir, "./...", 70.0, 3))
 
 	// Format code (tool execution)
@@ -206,20 +209,22 @@ func createRichActionSet(workDir string) []goap.Action {
 	return actions
 }
 
-// DemoRefiner is a simple refiner for the demo
-type DemoRefiner struct{}
+// SimpleRefiner is a basic goal refiner for the reasoning agent.
+// In production, replace with LLMGoalRefiner for intelligent decomposition.
+type SimpleRefiner struct{}
 
-func NewDemoRefiner() *DemoRefiner {
-	return &DemoRefiner{}
+func NewSimpleRefiner() *SimpleRefiner {
+	return &SimpleRefiner{}
 }
 
-func (r *DemoRefiner) Refine(ctx context.Context, goal *goap.Goal, current goap.WorldState) ([]*goap.Goal, error) {
-	// For demo, we'll keep it simple and not decompose
-	// In real system, LLM would suggest decompositions
+func (r *SimpleRefiner) Refine(ctx context.Context, goal *goap.Goal, current goap.WorldState) ([]*goap.Goal, error) {
+	// Simple refiner doesn't decompose goals
+	// In production, LLM-based refiner would intelligently decompose complex goals
 	return nil, nil
 }
 
-func (r *DemoRefiner) IsAtomic(goal *goap.Goal, current goap.WorldState) bool {
-	// All goals are atomic in this demo
+func (r *SimpleRefiner) IsAtomic(goal *goap.Goal, current goap.WorldState) bool {
+	// All goals are atomic in simple mode
+	// Production LLM refiner would determine atomicity based on goal complexity
 	return true
 }
