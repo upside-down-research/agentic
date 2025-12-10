@@ -1,0 +1,42 @@
+name: Bazel
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Mount bazel cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/bazel
+        key: ${{ runner.os }}-bazel-${{ hashFiles('.bazelversion', 'WORKSPACE', 'deps.bzl') }}
+        restore-keys: |
+          ${{ runner.os }}-bazel-
+
+    - name: Install Bazelisk
+      run: |
+        wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64
+        chmod +x bazelisk-linux-amd64
+        sudo mv bazelisk-linux-amd64 /usr/local/bin/bazel
+
+    - name: Build with Bazel
+      run: bazel build //...
+
+    - name: Test with Bazel
+      run: bazel test //...
+
+    - name: Build binary
+      run: bazel build //cmd:agentic
+
+    - name: Verify binary exists
+      run: |
+        ls -lh bazel-bin/cmd/agentic_/agentic
+        ./bazel-bin/cmd/agentic_/agentic --help || true

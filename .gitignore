@@ -3,3 +3,9 @@ output/
 build/
 \#*
 .\#*
+
+# Bazel
+/bazel-*
+.bazel
+bazelisk
+MODULE.bazel
