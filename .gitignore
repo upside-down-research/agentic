@@ -3,3 +3,7 @@ output/
 build/
 \#*
 .\#*
+
+# Bazel
+bazel-*
+MODULE.bazel.lock

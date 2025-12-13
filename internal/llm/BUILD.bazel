@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "llm",
+    srcs = [
+        "ai00.go",
+        "bedrock.go",
+        "claude.go",
+        "llm.go",
+        "openai.go",
+        "vertexai.go",
+    ],
+    importpath = "upside-down-research.com/oss/agentic/internal/llm",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/o11y",
+        "@com_github_aws_aws_sdk_go_v2//:aws-sdk-go-v2",
+        "@com_github_aws_aws_sdk_go_v2//aws",
+        "@com_github_aws_aws_sdk_go_v2_config//:config",
+        "@com_github_aws_aws_sdk_go_v2_service_bedrockruntime//:bedrockruntime",
+        "@com_github_aws_aws_sdk_go_v2_service_bedrockruntime//types",
+        "@com_github_charmbracelet_log//:log",
+    ],
+)
+
+go_test(
+    name = "llm_test",
+    srcs = ["bedrock_test.go"],
+    embed = [":llm"],
+)

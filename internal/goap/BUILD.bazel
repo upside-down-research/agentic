@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "goap",
+    srcs = [
+        "action.go",
+        "executor.go",
+        "goal.go",
+        "llm_refiner.go",
+        "orchestrator.go",
+        "persistence.go",
+        "planner.go",
+        "refinement.go",
+        "worldstate.go",
+    ],
+    importpath = "upside-down-research.com/oss/agentic/internal/goap",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/llm",
+        "@com_github_charmbracelet_log//:log",
+    ],
+)
+
+go_test(
+    name = "goap_test",
+    srcs = [
+        "executor_test.go",
+        "goap_test.go",
+        "persistence_test.go",
+        "refinement_test.go",
+    ],
+    embed = [":goap"],
+)

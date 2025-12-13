@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "actions",
+    srcs = [
+        "actions.go",
+        "api_actions.go",
+        "build_actions.go",
+        "builder.go",
+        "edit_actions.go",
+        "git_actions.go",
+        "granular_edits.go",
+        "lsp_edits.go",
+        "resilience_actions.go",
+        "review_actions.go",
+        "template_actions.go",
+        "test_actions.go",
+        "validation_actions.go",
+    ],
+    importpath = "upside-down-research.com/oss/agentic/internal/goap/actions",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/goap",
+        "//internal/goap/templates",
+        "//internal/llm",
+        "@com_github_charmbracelet_log//:log",
+    ],
+)
