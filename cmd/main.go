@@ -80,11 +80,13 @@ type ImplementedPlan struct {
 }
 
 var CLI struct {
-	LLMType    string  `name:"llm" help:"LLM type to use." enum:"openai,ai00,claude,bedrock" default:"openai"`
-	Output     string  `name:"output" help:"Output directory for details." type:"path"`
-	TicketPath string  `arg:"" name:"ticket" help:"TicketPath to read." type:"path"`
-	Model      *string `name:"model" help:"Model to use; leave blank for agentic pick"`
-	AWSRegion  *string `name:"aws-region" help:"AWS region for Bedrock (defaults to us-east-1)"`
+	LLMType         string  `name:"llm" help:"LLM type to use." enum:"openai,ai00,claude,bedrock,vertexai" default:"openai"`
+	Output          string  `name:"output" help:"Output directory for details." type:"path"`
+	TicketPath      string  `arg:"" name:"ticket" help:"TicketPath to read." type:"path"`
+	Model           *string `name:"model" help:"Model to use; leave blank for agentic pick"`
+	AWSRegion       *string `name:"aws-region" help:"AWS region for Bedrock (defaults to us-east-1)"`
+	GCPProjectID    *string `name:"gcp-project-id" help:"GCP project ID for Vertex AI (can also use GCP_PROJECT_ID env var)"`
+	GCPLocation     *string `name:"gcp-location" help:"GCP location for Vertex AI (defaults to us-central1)"`
 }
 
 func StringPrompt(label string) string {
@@ -319,6 +321,35 @@ func main() {
 			log.Fatal("Failed to create Bedrock client: ", err)
 		}
 		s = bedrockClient
+
+	} else if CLI.LLMType == "vertexai" {
+		// Get GCP project ID from CLI or environment
+		var projectID string
+		var found bool
+		if CLI.GCPProjectID != nil {
+			projectID = *CLI.GCPProjectID
+		} else {
+			projectID, found = os.LookupEnv("GCP_PROJECT_ID")
+			if !found {
+				log.Fatal("GCP_PROJECT_ID not found (use --gcp-project-id flag or GCP_PROJECT_ID env var)")
+			}
+		}
+
+		// Get GCP location (region)
+		location := "us-central1" // default location
+		if CLI.GCPLocation != nil {
+			location = *CLI.GCPLocation
+		}
+
+		var model string
+		if CLI.Model == nil {
+			// Default to Gemini Pro
+			model = "gemini-pro"
+		} else {
+			model = *CLI.Model
+		}
+
+		s = llm.NewVertexAI(projectID, location, model)
 
 	} else {
 		log.Fatal("Unknown LLM type")
