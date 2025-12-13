@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "reasoning-agent_lib",
+    srcs = ["main.go"],
+    importpath = "upside-down-research.com/oss/agentic/cmd/reasoning-agent",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//internal/goap",
+        "//internal/goap/actions",
+        "@com_github_charmbracelet_log//:log",
+    ],
+)
+
+go_binary(
+    name = "reasoning-agent",
+    embed = [":reasoning-agent_lib"],
+    visibility = ["//visibility:public"],
+)

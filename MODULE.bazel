@@ -1,0 +1,26 @@
+module(
+    name = "agentic",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "rules_go", version = "0.50.1")
+bazel_dep(name = "gazelle", version = "0.39.1")
+
+# Configure Go SDK version
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(version = "1.23.4")
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+use_repo(
+    go_deps,
+    "com_github_alecthomas_kong",
+    "com_github_aws_aws_sdk_go_v2",
+    "com_github_aws_aws_sdk_go_v2_config",
+    "com_github_aws_aws_sdk_go_v2_service_bedrockruntime",
+    "com_github_charmbracelet_log",
+    "com_github_google_uuid",
+    "com_github_influxdata_influxdb_client_go_v2",
+    "com_github_influxdata_line_protocol",
+    "com_github_prometheus_client_golang",
+)
