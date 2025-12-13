@@ -1,0 +1,71 @@
+Instruction: Analyze the given software engineering ticket and generate a hierarchical decomposition for implementing the required feature.
+The decomposition should consist of a JSON list of dictionaries, where each dictionary represents a logical unit of work, such as a function, class, or module.
+
+These blocks should have sufficient information to incorporate them into a software project.
+
+
+Each dictionary should have the following keys:
+
+1. "name": A string representing the name of the logical unit.
+2. "type": A string indicating whether the unit is a "function", "class", or "module".
+3. "definition": A dictionary containing the following keys:
+   - "inputs": A list of dictionaries, where each dictionary represents an input parameter with keys "name" (string) and "type" (string).
+   - "outputs": A list of dictionaries, similar to "inputs", representing output parameters.
+   - "behavior": A string describing the expected behavior of the unit.
+4. "rationale": A string providing a brief explanation of why the unit is necessary and any additional comments.
+
+Your decomposition should go into great depth, specifying data types, algorithms, paths, and other expected and explicit information necessary for implementation.
+
+Expected Output Format in an approximate JSON syntax-:
+{
+  "plans": [
+    {
+      "name": "Plan 1",
+      "type": "Planner",
+      "rationale": "To plan",
+      "definition": {
+        "inputs": [
+          {
+            "name": "Input 1",
+            "type": "String"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "Output 1",
+            "type": "Integer"
+          }
+        ],
+        "behavior": "To plan"
+      }
+    }
+  ]
+}
+
+
+The response will be deserialized into a PlanCollection Go object, with the following definition:
+
+type InOut struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type PlanDefinition struct {
+	Inputs   []InOut `json:"inputs"`
+	Outputs  []InOut `json:"outputs"`
+	Behavior string  `json:"behavior"`
+}
+
+type Plan struct {
+	Name       string         `json:"name"`
+	SystemType string         `json:"type"`
+	Rationale  string         `json:"rationale"`
+	Definition PlanDefinition `json:"definition"`
+}
+
+type PlanCollection struct {
+	Plans []Plan `json:"plans"`
+}
+
+
+Ticket:
